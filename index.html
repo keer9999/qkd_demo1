@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>BB84 Quantum Key Distribution Simulator</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@stlite/mountable@0.63.1/build/stlite.css"/>
+</head>
+<body>
+    <div id="root"></div>
+    <script src="https://cdn.jsdelivr.net/npm/@stlite/mountable@0.63.1/build/stlite.js"></script>
+    <script>
+    stlite.mount(
+        {
+            requirements: ["numpy", "pandas", "matplotlib"],
+            entrypoint: "streamlit_app.py",
+            files: {
+                "streamlit_app.py": `
+import streamlit as st
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from matplotlib.patches import Patch
+import hashlib
+
+st.set_page_config(page_title="BB84 Quantum Key Distribution", layout="wide")
+
+class PureQuantumSimulator:
+    """Pure Python quantum simulator for BB84 protocol (no Qiskit required)"""
+
+    @staticmethod
+    def measure_qubit(bit, send_basis, measure_basis):
+        """
+        Simulate quantum measurement using pure Python
+
+        Parameters:
+        - bit: 0 or 1 (the classical bit Alice wants to send)
+        - send_basis: 0 (rectilinear/Z) or 1 (diagonal/X)
+        - measure_basis: 0 (rectilinear/Z) or 1 (diagonal/X)
+
+        Returns: measured bit (0 or 1)
+        """
+        # If bases match, measurement is deterministic
+        if send_basis == measure_basis:
+            return bit
+
+        # If bases don't match, measurement result is random (50/50)
+        # This simulates the quantum uncertainty when measuring in wrong basis
+        return np.random.randint(0, 2)
+
+class BB84Simulator:
+    def __init__(self):
+        self.quantum_sim = PureQuantumSimulator()
+
+    def simulate_transmission(self, alice_bits, alice_bases, bob_bases, eve_present=False, eve_intercept_prob=0.5):
+        """Simulate BB84 transmission with optional eavesdropper"""
+        bob_results = []
+        eve_results = []
+
+        for a_bit, a_basis, b_basis in zip(alice_bits, alice_bases, bob_bases):
+            if eve_present and np.random.rand() < eve_intercept_prob:
+                # Eve intercepts with random basis
+                eve_basis = np.random.randint(0, 2)
+                eve_bit = self.quantum_sim.measure_qubit(a_bit, a_basis, eve_basis)
+                eve_results.append(eve_bit)
+                # Bob measures Eve's state (not Alice's original)
+                bob_result = self.quantum_sim.measure_qubit(eve_bit, eve_basis, b_basis)
+            else:
+                # Direct transmission from Alice to Bob
+                bob_result = self.quantum_sim.measure_qubit(a_bit, a_basis, b_basis)
+                eve_results.append(None)
+
+            bob_results.append(bob_result)
+
+        return bob_results, eve_results
+
+    @staticmethod
+    def privacy_amplification(sifted_key, error_rate, target_security_level=1e-6):
+        """Apply privacy amplification to generate final secure key"""
+        sifted_key = [int(b) for b in list(sifted_key)]
+        n = len(sifted_key)
+        if n == 0:
+            return []
+
+        e = float(error_rate)
+        if e <= 0.0 or e >= 1.0:
+            h_eve = 0.0
+        else:
+            # Shannon entropy calculation
+            h_eve = -e * np.log2(e) - (1 - e) * np.log2(1 - e)
+
+        # Calculate secure key length using privacy amplification formula
+        secure_length = n * (1 - h_eve) - 2 * np.log2(1 / float(target_security_level))
+        secure_length = max(0, int(secure_length))
+
+        if secure_length == 0:
+            return []
+
+        # Use cryptographic hash to compress key
+        key_str = ''.join('1' if b == 1 else '0' for b in sifted_key)
+        digest = hashlib.sha256(key_str.encode()).hexdigest()
+        binary_hash = bin(int(digest, 16))[2:].zfill(256)
+        final_bits = [int(b) for b in binary_hash[:secure_length]]
+
+        return final_bits
+
+    @staticmethod
+    def assess_security(qber, threshold=0.11):
+        """Assess security based on QBER"""
+        if qber <= threshold:
+            return {
+                'status': 'SECURE',
+                'message': f'QBER ({qber:.3f}) below threshold. Key exchange successful.',
+                'action': 'PROCEED_WITH_KEY'
+            }
+        return {
+            'status': 'INSECURE',
+            'message': f'QBER ({qber:.3f}) exceeds threshold ({threshold}). Eavesdropping suspected.',
+            'action': 'ABORT_AND_RETRY'
+        }
+
+def create_transmission_timeline(alice_bits, alice_bases, bob_bases, bob_results):
+    """Create detailed timeline of transmission"""
+    matches = (alice_bases == bob_bases)
+    idx = np.where(matches)[0]
+    sifted_alice = alice_bits[idx]
+    sifted_bob = np.array(bob_results)[idx]
+
+    timeline_data = []
+    sifted_idx = 0
+
+    for i in range(len(alice_bits)):
+        row = {
+            'BitIndex': i,
+            'AliceBit': alice_bits[i],
+            'AliceBasis': alice_bases[i],
+            'BobBasis': bob_bases[i],
+            'BobResult': bob_results[i],
+            'BaseMatch': matches[i],
+            'Used': matches[i],
+            'Error': False,
+            'ErrorType': 'None'
+        }
+
+        if matches[i]:
+            if sifted_idx < len(sifted_alice):
+                row['Error'] = (sifted_alice[sifted_idx] != sifted_bob[sifted_idx])
+                if row['Error']:
+                    row['ErrorType'] = 'Transmission Error'
+                sifted_idx += 1
+        else:
+            row['ErrorType'] = 'Basis Mismatch'
+
+        timeline_data.append(row)
+
+    return pd.DataFrame(timeline_data)
+
+def plot_transmission_timeline(timeline_df, title="BB84 Transmission Timeline", max_bits=50):
+    """Plot timeline showing transmitted bits and errors"""
+    display_df = timeline_df.head(max_bits)
+
+    fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(15, 10))
+
+    # Plot 1: Alice's transmitted bits
+    colors1 = []
+    edge_colors1 = []
+    heights1 = []
+
+    for bit in display_df['AliceBit']:
+        if bit == 0:
+            colors1.append('cyan')
+            edge_colors1.append('blue')
+            heights1.append(0.2)
+        else:
+            colors1.append('navy')
+            edge_colors1.append('darkblue')
+            heights1.append(1.0)
+
+    ax1.bar(display_df['BitIndex'], heights1, 
+            color=colors1, edgecolor=edge_colors1, linewidth=1, alpha=0.9)
+    ax1.set_title(title + " - Alice Transmitted Bits (Cyan=0, Navy=1)")
+    ax1.set_ylabel('Bit Representation')
+    ax1.set_ylim(0, 1.2)
+
+    for idx, bit, height in zip(display_df['BitIndex'], display_df['AliceBit'], heights1):
+        label_y = height + 0.05 if height < 0.5 else height - 0.15
+        text_color = 'black' if height < 0.5 else 'white'
+        ax1.text(idx, label_y, str(int(bit)), ha='center', va='center', 
+                fontsize=8, fontweight='bold', color=text_color)
+
+    # Plot 2: Base matching
+    colors2 = ['limegreen' if match else 'crimson' for match in display_df['BaseMatch']]
+    heights2 = [1.0] * len(display_df)
+    ax2.bar(display_df['BitIndex'], heights2, color=colors2, 
+            edgecolor='black', linewidth=0.5, alpha=0.8)
+    ax2.set_title('Base Matching (Lime Green=Match/Used, Crimson=Mismatch/Discarded)')
+    ax2.set_ylabel('Base Match Indicator')
+    ax2.set_ylim(0, 1.2)
+
+    # Plot 3: Errors in sifted bits
+    error_heights = []
+    colors3 = []
+
+    for _, row in display_df.iterrows():
+        if row['Used']:
+            if row['Error']:
+                error_heights.append(1.0)
+                colors3.append('red')
+            else:
+                error_heights.append(0.8)
+                colors3.append('forestgreen')
+        else:
+            error_heights.append(0.3)
+            colors3.append('lightgray')
+
+    ax3.bar(display_df['BitIndex'], error_heights, color=colors3, 
+            edgecolor='black', linewidth=0.5, alpha=0.8)
+    ax3.set_title('Transmission Results (Red=Error, Forest Green=Correct, Light Gray=Not Used)')
+    ax3.set_xlabel('Bit Index')
+    ax3.set_ylabel('Status')
+    ax3.set_ylim(0, 1.2)
+
+    legend_elements = [
+        Patch(facecolor='forestgreen', alpha=0.8, label='Correct'),
+        Patch(facecolor='red', alpha=0.8, label='Error'),
+        Patch(facecolor='lightgray', alpha=0.8, label='Not Used')
+    ]
+    ax3.legend(handles=legend_elements, loc='upper right')
+
+    bit_legend_elements = [
+        Patch(facecolor='cyan', alpha=0.9, edgecolor='blue', label='0-bit (height=0.2)'),
+        Patch(facecolor='navy', alpha=0.9, edgecolor='darkblue', label='1-bit (height=1.0)')
+    ]
+    ax1.legend(handles=bit_legend_elements, loc='upper right')
+
+    plt.tight_layout()
+    return fig
+
+# Main App
+st.title("🔐 BB84 Quantum Key Distribution Simulator")
+st.markdown("""
+This interactive simulator demonstrates the BB84 quantum key distribution protocol, 
+which enables secure key exchange using quantum mechanics principles.
+
+**Note:** This version uses pure Python quantum simulation (no Qiskit required for web deployment).
+""")
+
+# Sidebar controls
+st.sidebar.header("Simulation Parameters")
+num_bits = st.sidebar.slider("Number of Bits to Transmit", 50, 500, 200, 50)
+qber_threshold = st.sidebar.slider("QBER Threshold", 0.05, 0.20, 0.11, 0.01)
+random_seed = st.sidebar.number_input("Random Seed", 0, 1000, 42, 1)
+max_display_bits = st.sidebar.slider("Max Bits to Display in Timeline", 20, 100, 50, 10)
+
+# Scenario selection
+scenario = st.sidebar.radio("Simulation Scenario", ["No Eavesdropper", "With Eavesdropper", "Compare Both"])
+
+if scenario == "With Eavesdropper":
+    eve_intercept_prob = st.sidebar.slider("Eve's Intercept Probability", 0.1, 1.0, 0.5, 0.1)
+else:
+    eve_intercept_prob = 0.5
+
+if st.sidebar.button("🚀 Run Simulation", type="primary"):
+    sim = BB84Simulator()
+
+    # Generate random bits
+    np.random.seed(random_seed)
+    alice_bits = np.random.randint(0, 2, size=num_bits)
+    alice_bases = np.random.randint(0, 2, size=num_bits)
+    bob_bases = np.random.randint(0, 2, size=num_bits)
+
+    # Scenario execution
+    if scenario in ["No Eavesdropper", "Compare Both"]:
+        st.header("📊 Scenario: No Eavesdropper")
+
+        with st.spinner("Simulating transmission without eavesdropper..."):
+            bob_results, _ = sim.simulate_transmission(alice_bits, alice_bases, bob_bases, eve_present=False)
+
+            # Process results
+            timeline_no_eve = create_transmission_timeline(alice_bits, alice_bases, bob_bases, bob_results)
+
+            matches = (alice_bases == bob_bases)
+            idx = np.where(matches)[0]
+            sifted_alice = alice_bits[idx].astype(int)
+            sifted_bob = np.array(bob_results, dtype=int)[idx]
+
+            if len(sifted_alice) > 0:
+                errors = int(np.sum(sifted_alice != sifted_bob))
+                qber = errors / len(sifted_alice)
+            else:
+                errors = 0
+                qber = 0.0
+
+            sec = sim.assess_security(float(qber), float(qber_threshold))
+            final_key = sim.privacy_amplification(sifted_alice.tolist(), qber) if sec['status'] == 'SECURE' else []
+
+            # Display metrics
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("Transmitted Bits", num_bits)
+            with col2:
+                st.metric("Sifted Bits", len(sifted_alice))
+            with col3:
+                st.metric("QBER", f"{qber:.3f}")
+            with col4:
+                st.metric("Final Key Length", len(final_key))
+
+            # Security status
+            if sec['status'] == 'SECURE':
+                st.success(f"✅ {sec['message']}")
+            else:
+                st.error(f"❌ {sec['message']}")
+
+            # Timeline visualization
+            st.subheader("Transmission Timeline")
+            fig = plot_transmission_timeline(timeline_no_eve, "No Eavesdropper", max_display_bits)
+            st.pyplot(fig)
+
+            # Detailed table
+            with st.expander("View Detailed Timeline Data"):
+                st.dataframe(timeline_no_eve.head(100))
+
+    if scenario in ["With Eavesdropper", "Compare Both"]:
+        if scenario == "Compare Both":
+            st.divider()
+
+        st.header("🕵️ Scenario: With Eavesdropper (Eve)")
+
+        # Use different seed for Eve scenario
+        np.random.seed(random_seed + 123)
+        alice_bits_eve = np.random.randint(0, 2, size=num_bits)
+        alice_bases_eve = np.random.randint(0, 2, size=num_bits)
+        bob_bases_eve = np.random.randint(0, 2, size=num_bits)
+
+        with st.spinner("Simulating transmission with eavesdropper..."):
+            bob_results_eve, eve_results = sim.simulate_transmission(
+                alice_bits_eve, alice_bases_eve, bob_bases_eve,
+                eve_present=True, eve_intercept_prob=eve_intercept_prob
+            )
+
+            # Process results
+            timeline_with_eve = create_transmission_timeline(alice_bits_eve, alice_bases_eve, bob_bases_eve, bob_results_eve)
+
+            matches_eve = (alice_bases_eve == bob_bases_eve)
+            idx_eve = np.where(matches_eve)[0]
+            sifted_alice_eve = alice_bits_eve[idx_eve].astype(int)
+            sifted_bob_eve = np.array(bob_results_eve, dtype=int)[idx_eve]
+
+            if len(sifted_alice_eve) > 0:
+                errors_eve = int(np.sum(sifted_alice_eve != sifted_bob_eve))
+                qber_eve = errors_eve / len(sifted_alice_eve)
+            else:
+                errors_eve = 0
+                qber_eve = 0.0
+
+            sec_eve = sim.assess_security(qber_eve, qber_threshold)
+            final_key_eve = sim.privacy_amplification(sifted_alice_eve.tolist(), qber_eve) if sec_eve['status'] == 'SECURE' else []
+
+            # Display metrics
+            col1, col2, col3, col4, col5 = st.columns(5)
+            with col1:
+                st.metric("Transmitted Bits", num_bits)
+            with col2:
+                st.metric("Eve's Intercept Prob", f"{eve_intercept_prob:.1f}")
+            with col3:
+                st.metric("Sifted Bits", len(sifted_alice_eve))
+            with col4:
+                st.metric("QBER", f"{qber_eve:.3f}", delta=f"{qber_eve-qber:.3f}" if scenario == "Compare Both" else None)
+            with col5:
+                st.metric("Final Key Length", len(final_key_eve))
+
+            # Security status
+            if sec_eve['status'] == 'SECURE':
+                st.success(f"✅ {sec_eve['message']}")
+            else:
+                st.error(f"❌ {sec_eve['message']}")
+
+            # Timeline visualization
+            st.subheader("Transmission Timeline")
+            fig_eve = plot_transmission_timeline(timeline_with_eve, "With Eavesdropper", max_display_bits)
+            st.pyplot(fig_eve)
+
+            # Detailed table
+            with st.expander("View Detailed Timeline Data"):
+                st.dataframe(timeline_with_eve.head(100))
+
+    # Comparison chart for "Compare Both" scenario
+    if scenario == "Compare Both":
+        st.divider()
+        st.header("📈 Comparison Summary")
+
+        fig_compare, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
+
+        ax1.bar(['Transmitted', 'Sifted', 'Final Key'], [num_bits, len(sifted_alice), len(final_key)],
+                color=['lightblue', 'steelblue', 'darkblue'])
+        ax1.set_title(f"No Eve (QBER: {qber:.3f})")
+        ax1.set_ylabel('Number of Bits')
+
+        ax2.bar(['Transmitted', 'Sifted', 'Final Key'], [num_bits, len(sifted_alice_eve), len(final_key_eve)],
+                color=['lightcoral', 'indianred', 'darkred'])
+        ax2.set_title(f"With Eve (QBER: {qber_eve:.3f})")
+        ax2.set_ylabel('Number of Bits')
+
+        plt.tight_layout()
+        st.pyplot(fig_compare)
+
+        st.info(f"""
+        **Key Findings:**
+        - Without Eve: QBER = {qber:.3f}, Final Key = {len(final_key)} bits
+        - With Eve: QBER = {qber_eve:.3f}, Final Key = {len(final_key_eve)} bits
+        - The presence of an eavesdropper typically increases QBER, which helps detect security threats!
+        """)
+
+else:
+    st.info("👈 Configure parameters in the sidebar and click 'Run Simulation' to start!")
+
+    # Educational content
+    st.markdown("""
+    ### About BB84 Protocol
+
+    The BB84 protocol, invented by Charles Bennett and Gilles Brassard in 1984, is the first quantum cryptography protocol. 
+    It uses quantum mechanics to guarantee secure communication between two parties (Alice and Bob).
+
+    **Key Concepts:**
+    - **Alice** prepares quantum states (qubits) representing bits using random bases
+    - **Bob** measures these qubits using randomly chosen bases
+    - They publicly compare their bases (not the bit values)
+    - Only measurements with matching bases are kept (basis sifting)
+    - **QBER** (Quantum Bit Error Rate) indicates if eavesdropping occurred
+    - Privacy amplification creates the final secure key
+
+    **Quantum Measurement:**
+    - When bases match: measurement is deterministic (bit value preserved)
+    - When bases don't match: measurement is random (50/50 outcome)
+    - Eve's measurement disturbs the quantum state, causing detectable errors
+
+    **Security:**
+    - Eavesdropping causes detectable errors due to quantum measurement collapse
+    - QBER above threshold indicates potential security breach
+    - The protocol detects but doesn't prevent eavesdropping
+
+    **Bases:**
+    - **Rectilinear (Z-basis)**: |0⟩ and |1⟩ states
+    - **Diagonal (X-basis)**: |+⟩ and |−⟩ states (superposition)
+    """)
+`
+            }
+        },
+        document.getElementById("root")
+    );
+    </script>
+</body>
+</html>
