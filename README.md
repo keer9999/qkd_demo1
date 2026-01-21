@@ -4,7 +4,7 @@ An interactive web-based simulator for the BB84 quantum key distribution protoco
 
 ## 🚀 Live Demo
 
-Once deployed, your app will be available at: `https://keer9999.github.io/qkd_demo1/`
+Our app is available at: [https://keer9999.github.io/qkd_demo1/]https://keer9999.github.io/qkd_demo1/
 
 ## ✨ Key Feature: Pure Python Implementation
 
