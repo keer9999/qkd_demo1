@@ -2,19 +2,19 @@
 
 An interactive web-based simulator for the BB84 quantum key distribution protocol, built with Streamlit and deployed using stlite on GitHub Pages.
 
-## 🚀 Live Demo
+##  Live Demo
 
 Our app is available at: https://keer9999.github.io/qkd_demo1/
 
-## ✨ Key Feature: Pure Python Implementation
+##  Key Feature: Pure Python Implementation
 
 This simulator uses a **pure Python quantum simulation** approach instead of Qiskit, making it:
-- ✅ **Browser-compatible** - Runs perfectly on GitHub Pages
-- ✅ **Fast loading** - Only requires numpy, pandas, matplotlib
-- ✅ **Educationally equivalent** - Same BB84 behavior and results
-- ✅ **No compilation** - No C++ extensions needed
+-  **Browser-compatible** - Runs perfectly on GitHub Pages
+-  **Fast loading** - Only requires numpy, pandas, matplotlib
+-  **Educationally equivalent** - Same BB84 behavior and results
+-  **No compilation** - No C++ extensions needed
 
-## 📋 Features
+##  Features
 
 - **Interactive Simulation**: Configure parameters and run BB84 protocol simulations in real-time
 - **Visual Timeline**: Detailed visualization of bit transmission, basis matching, and errors
@@ -23,7 +23,7 @@ This simulator uses a **pure Python quantum simulation** approach instead of Qis
 - **No Server Required**: Runs entirely in your browser using WebAssembly (Pyodide)
 - **Pure Python**: No heavy quantum libraries - perfect for web deployment
 
-## 🛠️ Technology Stack
+##  Technology Stack
 
 - **Streamlit**: Web application framework
 - **stlite**: Serverless Streamlit using WebAssembly
@@ -32,7 +32,7 @@ This simulator uses a **pure Python quantum simulation** approach instead of Qis
 - **Matplotlib**: Visualization
 - **GitHub Pages**: Free static hosting
 
-## 🔬 How It Works
+##  How It Works
 
 The simulator implements BB84 quantum behavior using pure Python:
 
@@ -47,12 +47,12 @@ def measure_qubit(bit, send_basis, measure_basis):
 ```
 
 This correctly models:
-- ✅ Basis matching → deterministic measurement (bit preserved)
-- ✅ Basis mismatch → random 50/50 outcome (quantum collapse)
-- ✅ Eavesdropping → detectable errors in transmission
-- ✅ QBER calculation → same as full quantum simulation
+-  Basis matching → deterministic measurement (bit preserved)
+-  Basis mismatch → random 50/50 outcome (quantum collapse)
+-  Eavesdropping → detectable errors in transmission
+-  QBER calculation → same as full quantum simulation
 
-## 📦 Deployment Instructions
+##  Deployment Instructions
 
 ### Step 1: Create a GitHub Repository
 
@@ -101,7 +101,7 @@ git push origin main
 3. You should see the BB84 simulator loading
 4. Initial load takes 5-15 seconds (downloading packages)
 
-## 🎯 Usage
+##  Usage
 
 1. **Open the app** in your browser at your GitHub Pages URL
 2. **Configure parameters** in the left sidebar:
@@ -120,7 +120,7 @@ git push origin main
    - Examine detailed data tables
    - Compare security with/without eavesdropper
 
-## 📊 Understanding the Visualizations
+##  Understanding the Visualizations
 
 ### Alice's Transmitted Bits
 - **Cyan bars** (height 0.2): Represents 0-bits
@@ -137,7 +137,7 @@ git push origin main
 - **Red**: Transmission error detected
 - **Light gray**: Bit not used (basis mismatch)
 
-## 🔐 About BB84 Protocol
+##  About BB84 Protocol
 
 The BB84 protocol, invented by Charles Bennett and Gilles Brassard in 1984, is the first quantum cryptography protocol. It uses quantum mechanics principles to:
 
@@ -177,13 +177,13 @@ If you want to run locally with Streamlit:
 
 **Note**: No Qiskit required! The pure Python implementation works locally and on the web.
 
-## 📝 Files Included
+##  Files Included
 
 - **`index.html`**: Main file for GitHub Pages deployment with stlite (required)
 - **`streamlit_app.py`**: Standalone Streamlit app for local development (optional)
 - **`README.md`**: This documentation
 
-## ⚠️ Important Notes
+##  Important Notes
 
 1. **First Load**: The app takes 5-15 seconds to load initially as it downloads numpy, pandas, and matplotlib
 2. **Browser Compatibility**: Works best in Chrome, Firefox, Safari, and Edge (latest versions)
@@ -191,7 +191,7 @@ If you want to run locally with Streamlit:
 4. **Offline Capability**: After first load, the app can work offline (packages are cached)
 5. **No Qiskit**: This pure Python version is faster and more compatible than Qiskit-based versions
 
-## 🐛 Troubleshooting
+##  Troubleshooting
 
 ### App doesn't load
 - Wait 15-20 seconds for initial package download
@@ -217,7 +217,7 @@ If you want to run locally with Streamlit:
 - Old versions may reference Qiskit (not compatible)
 - The correct requirements are: `["numpy", "pandas", "matplotlib"]`
 
-## 💡 Expected Behavior
+##  Expected Behavior
 
 | Scenario | QBER | Status | Explanation |
 |----------|------|--------|-------------|
@@ -225,7 +225,7 @@ If you want to run locally with Streamlit:
 | Eve 50% intercept | ~25% | INSECURE | Eve's measurement disturbs ~50% of intercepted bits |
 | Eve 100% intercept | ~50% | INSECURE | Maximum disturbance from full interception |
 
-## 📚 Learn More
+##  Learn More
 
 - [BB84 Protocol (Wikipedia)](https://en.wikipedia.org/wiki/BB84)
 - [Quantum Cryptography Basics](https://en.wikipedia.org/wiki/Quantum_cryptography)
@@ -233,7 +233,7 @@ If you want to run locally with Streamlit:
 - [stlite Repository](https://github.com/whitphx/stlite)
 - [Pyodide - Python in WebAssembly](https://pyodide.org/)
 
-## 🎓 Educational Value
+##  Educational Value
 
 This simulator is perfect for:
 - **Students** learning quantum cryptography concepts
@@ -243,11 +243,11 @@ This simulator is perfect for:
 
 The pure Python implementation makes it accessible while remaining scientifically accurate.
 
-## 📄 License
+##  License
 
 This project is open source and available for educational purposes.
 
-## 🤝 Contributing
+##  Contributing
 
 Feel free to fork, modify, and enhance this simulator! Ideas for contributions:
 - Add more quantum protocols (E91, B92)
@@ -257,7 +257,7 @@ Feel free to fork, modify, and enhance this simulator! Ideas for contributions:
 
 If you find bugs or have suggestions, please open an issue on GitHub.
 
-## 👏 Acknowledgments
+##  Acknowledgments
 
 - **Charles Bennett & Gilles Brassard** for inventing the BB84 protocol (1984)
 - **Streamlit team** for the amazing web framework
