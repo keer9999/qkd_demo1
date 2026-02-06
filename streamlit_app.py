@@ -219,7 +219,7 @@ def plot_transmission_timeline(timeline_df, title="BB84 Transmission Timeline", 
     return fig
 
 # Main App
-st.title("🔐 BB84 Quantum Key Distribution Simulator")
+st.title(" BB84 Quantum Key Distribution Simulator")
 st.markdown("""
 This interactive simulator demonstrates the BB84 quantum key distribution protocol, 
 which enables secure key exchange using quantum mechanics principles.
@@ -242,7 +242,7 @@ if scenario == "With Eavesdropper":
 else:
     eve_intercept_prob = 0.5
 
-if st.sidebar.button("🚀 Run Simulation", type="primary"):
+if st.sidebar.button(" Run Simulation", type="primary"):
     sim = BB84Simulator()
 
     # Generate random bits
@@ -253,7 +253,7 @@ if st.sidebar.button("🚀 Run Simulation", type="primary"):
 
     # Scenario execution
     if scenario in ["No Eavesdropper", "Compare Both"]:
-        st.header("📊 Scenario: No Eavesdropper")
+        st.header(" Scenario: No Eavesdropper")
 
         with st.spinner("Simulating transmission without eavesdropper..."):
             bob_results, _ = sim.simulate_transmission(alice_bits, alice_bases, bob_bases, eve_present=False)
@@ -306,7 +306,7 @@ if st.sidebar.button("🚀 Run Simulation", type="primary"):
         if scenario == "Compare Both":
             st.divider()
 
-        st.header("🕵️ Scenario: With Eavesdropper (Eve)")
+        st.header(" Scenario: With Eavesdropper (Eve)")
 
         # Use different seed for Eve scenario
         np.random.seed(random_seed + 123)
